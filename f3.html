@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Maze Shooter Game</title>
+    <title>LawnRanger</title>
     <style>
         body {
             margin: 0;
@@ -251,6 +251,7 @@
                 this.createPathAroundPosition(this.players.p1.x, this.players.p1.y);
                 this.createPathAroundPosition(this.players.p2.x, this.players.p2.y);
             }
+            //checking for valid moves
             hasValidMoves(player) {
                 const { x, y } = this.players[player];
                 const directions = [
@@ -269,7 +270,7 @@
                 });
             }
 
-            // New method to update player visibility
+            // player display
             updatePlayerVisibility() {
                 ['p1', 'p2'].forEach(player => {
                     const playerElement = document.querySelector(`.${player}`);
@@ -282,6 +283,7 @@
                     }
                 });
             }
+           
             initializeSnakes() {
                 const snakePositions = [
                     { x: Math.floor(BOARD_SIZE/4), y: Math.floor(BOARD_SIZE/4) },
@@ -383,6 +385,7 @@
                 if (e.key === 'Enter') this.shoot('p2');
             }
 
+            //player movements
             movePlayer(player, dx, dy, direction) {
                 const newX = this.players[player].x + dx;
                 const newY = this.players[player].y + dy;
@@ -396,7 +399,6 @@
                     this.updatePlayerPositions();
                 }
             }
-
 
             shoot(player) {
                 if (this.players[player].cooldown) return;
