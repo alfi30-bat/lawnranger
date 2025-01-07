@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Maze Shooter Game</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #1a1a1a;
+            font-family: Arial, sans-serif;
+        }
+        
+        #gameContainer {
+            text-align: center;
+        }
+
+        #gameBoard {
+            display: inline-grid;
+            gap: 1px;
+            background: #2d4a2d;
+            padding: 8px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .cell {
+            width: 60px;
+            height: 70px;
+            position: relative;
+            background-image: url('./grass.png');
+            background-size: cover;
+            transition: opacity 0.3s ease;
+        }
+
+        .path {
+            opacity: 0.3;
+        }
+
+        .player {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.3s ease;
+            z-index: 2;
+        }
+
+        /* New styles for player visibility */
+        .player.hidden {
+            opacity: 0.3;
+            z-index: 0; /* Place behind grass */
+        }
+
+        .p1 { background: #d0e60d; border: 2px solid #2E7D32; }
+        .p2 { background: #2196F3; border: 2px solid #1976D2; }
+
+        .bullet {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+            z-index: 1;
+            box-shadow: 0 0 10px #ff0;
+        }
+
+        .health-bars {
+            display: flex;
+            justify-content: space-between;
+            width: 600px;
+            margin-bottom: 20px;
+        }
+
+        .health-bar {
+            width: 200px;
+            color: white;
+        }
+
+        .health-progress {
+            width: 100%;
+            height: 20px;
+            background: #444;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .health-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .p1-health { background: #4CAF50; }
+        .p2-health { background: #2196F3; }
+
+        .controls {
+            color: white;
+            margin-top: 20px;
+        }
+
+        #gameOver {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px 40px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+
+        .snake {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <div class="health-bars">
+            <div class="health-bar">
+                <div>Player 1</div>
+                <div class="health-progress">
+                    <div id="p1Health" class="health-fill p1-health" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="health-bar">
+                <div>Player 2</div>
+                <div class="health-progress">
+                    <div id="p2Health" class="health-fill p2-health" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+        <div id="gameBoard"></div>
+        <div class="controls">
+            <p>Player 1: WASD to move, SPACE to shoot</p>
+            <p>Player 2: Arrow keys to move, ENTER to shoot</p>
+        </div>
+    </div>
+    <div id="gameOver">
+        <h2 id="winnerText"></h2>
+        <button onclick="location.reload()">Play Again</button>
+    </div>
+
+    <script>
+        const win = new Audio('./win.mp3');
+        const shot = new Audio('./shot.mp3');
+        const BOARD_SIZE = 15;
+        const INITIAL_HEALTH = 100;
+        const PATH_LIFETIME = 2000;
+        const SNAKE_MOVE_INTERVAL = 500;
+        const NUM_SNAKES = 4;
+        const BULLET_SPEED = 400;
+        const DAMAGE = 20;
+
+        class LSystemSnake {
+            constructor(startX, startY, targetPlayer) {
+                this.position = { x: startX, y: startY };
+                this.targetPlayer = targetPlayer;
+                this.angle = 0;
+                this.rules = 'F+F-F-FF+F+F-F';
+                this.currentStep = 0;
+                this.path = this.generatePath();
+            }
+
+            generatePath() {
+                const path = [];
+                const stack = [];
+                let x = this.position.x;
+                let y = this.position.y;
+                let angle = this.angle;
+                const distance = 1;
+
+                for (let char of this.rules) {
+                    switch (char) {
+                        case 'F':
+                            const newX = x + Math.round(Math.cos(angle * Math.PI / 180));
+                            const newY = y + Math.round(Math.sin(angle * Math.PI / 180));
+                            if (newX >= 0 && newX < BOARD_SIZE && newY >= 0 && newY < BOARD_SIZE) {
+                                path.push({ x: newX, y: newY });
+                                x = newX;
+                                y = newY;
+                            }
+                            break;
+                        case '+':
+                            angle += 90;
+                            break;
+                        case '-':
+                            angle -= 90;
+                            break;
+                        case '[':
+                            stack.push({ x, y, angle });
+                            break;
+                        case ']':
+                            const state = stack.pop();
+                            x = state.x;
+                            y = state.y;
+                            angle = state.angle;
+                            break;
+                    }
+                }
+                return path;
+            }
+
+            move(players) {
+                if (this.currentStep >= this.path.length) {
+                    this.currentStep = 0;
+                    this.position = { 
+                        x: Math.floor(Math.random() * BOARD_SIZE),
+                        y: Math.floor(Math.random() * BOARD_SIZE)
+                    };
+                    this.path = this.generatePath();
+                }
+
+                this.position = this.path[this.currentStep];
+                this.currentStep++;
+                return this.position;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(false));
+                this.players = {
+                    p1: { x: 0, y: 0, health: INITIAL_HEALTH, direction: 'right', cooldown: false },
+                    p2: { x: BOARD_SIZE - 1, y: BOARD_SIZE - 1, health: INITIAL_HEALTH, direction: 'left', cooldown: false }
+                };
+                this.snakes = [];
+                this.initializeSnakes();
+                this.gameOver = false;
+                
+                this.initializeBoard();
+                this.setupEventListeners();
+                this.startSnakes();
+                this.updatePlayerPositions();
+                
+                this.createPathAroundPosition(this.players.p1.x, this.players.p1.y);
+                this.createPathAroundPosition(this.players.p2.x, this.players.p2.y);
+            }
+            hasValidMoves(player) {
+                const { x, y } = this.players[player];
+                const directions = [
+                    { dx: -1, dy: 0 }, // up
+                    { dx: 1, dy: 0 },  // down
+                    { dx: 0, dy: -1 }, // left
+                    { dx: 0, dy: 1 }   // right
+                ];
+
+                return directions.some(dir => {
+                    const newX = x + dir.dx;
+                    const newY = y + dir.dy;
+                    return newX >= 0 && newX < BOARD_SIZE && 
+                           newY >= 0 && newY < BOARD_SIZE && 
+                           this.board[newX][newY];
+                });
+            }
+
+            // New method to update player visibility
+            updatePlayerVisibility() {
+                ['p1', 'p2'].forEach(player => {
+                    const playerElement = document.querySelector(`.${player}`);
+                    if (playerElement) {
+                        if (this.hasValidMoves(player)) {
+                            playerElement.classList.remove('hidden');
+                        } else {
+                            playerElement.classList.add('hidden');
+                        }
+                    }
+                });
+            }
+            initializeSnakes() {
+                const snakePositions = [
+                    { x: Math.floor(BOARD_SIZE/4), y: Math.floor(BOARD_SIZE/4) },
+                    { x: Math.floor(3*BOARD_SIZE/4), y: Math.floor(BOARD_SIZE/4) },
+                    { x: Math.floor(BOARD_SIZE/4), y: Math.floor(3*BOARD_SIZE/4) },
+                    { x: Math.floor(3*BOARD_SIZE/4), y: Math.floor(3*BOARD_SIZE/4) }
+                ];
+
+                for (let i = 0; i < NUM_SNAKES; i++) {
+                    const targetPlayer = i % 2 === 0 ? 'p1' : 'p2';
+                    this.snakes.push(new LSystemSnake(
+                        snakePositions[i].x,
+                        snakePositions[i].y,
+                        targetPlayer
+                    ));
+                }
+            }
+
+            initializeBoard() {
+                const gameBoard = document.getElementById('gameBoard');
+                gameBoard.style.gridTemplate = `repeat(${BOARD_SIZE}, 40px) / repeat(${BOARD_SIZE}, 40px)`;
+                
+                for (let y = 0; y < BOARD_SIZE; y++) {
+                    for (let x = 0; x < BOARD_SIZE; x++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'cell';
+                        cell.id = `cell-${x}-${y}`;
+                        gameBoard.appendChild(cell);
+                    }
+                }
+            }
+
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => this.handleKeyPress(e));
+            }
+
+            startSnakes() {
+                setInterval(() => {
+                    this.snakes.forEach((snake, index) => {
+                        const newPos = snake.move(this.players);
+                        
+                        // Update snake visual position
+                        const snakeElement = document.getElementById(`snake-${index}`);
+                        if (!snakeElement) {
+                            const newSnake = document.createElement('div');
+                            newSnake.id = `snake-${index}`;
+                            newSnake.className = 'snake';
+                            document.getElementById('gameBoard').appendChild(newSnake);
+                        }
+                        
+                        const cell = document.getElementById(`cell-${newPos.x}-${newPos.y}`);
+                        if (cell) {
+                            const rect = cell.getBoundingClientRect();
+                            const snakeEl = document.getElementById(`snake-${index}`);
+                            snakeEl.style.left = `${rect.left + rect.width/2}px`;
+                            snakeEl.style.top = `${rect.top + rect.height/2}px`;
+                        }
+                        
+                        this.createPathAroundPosition(newPos.x, newPos.y);
+                    });
+                }, SNAKE_MOVE_INTERVAL);
+            }
+
+            createPathAroundPosition(x, y) {
+                const radius = 1;
+                for (let i = -radius; i <= radius; i++) {
+                    for (let j = -radius; j <= radius; j++) {
+                        const newX = x + i;
+                        const newY = y + j;
+                        if (newX >= 0 && newX < BOARD_SIZE && newY >= 0 && newY < BOARD_SIZE) {
+                            const cell = document.getElementById(`cell-${newX}-${newY}`);
+                            cell.classList.add('path');
+                            this.board[newX][newY] = true;
+                            
+                            setTimeout(() => {
+                                cell.classList.remove('path');
+                                this.board[newX][newY] = false;
+                            }, PATH_LIFETIME);
+                        }
+                    }
+                }
+            }
+
+        handleKeyPress(e) {
+                if (this.gameOver) return;
+
+                // Player 1 controls (WASD + Space)
+                if (e.key === 'w') this.movePlayer('p1', 0, -1, 'up');
+                if (e.key === 's') this.movePlayer('p1', 0, 1, 'down');
+                if (e.key === 'a') this.movePlayer('p1', -1, 0, 'left');
+                if (e.key === 'd') this.movePlayer('p1', 1, 0, 'right');
+                if (e.key === ' ') this.shoot('p1');
+
+                // Player 2 controls (Arrows + Enter)
+                if (e.key === 'ArrowLeft') this.movePlayer('p2', -1, 0, 'left');
+                if (e.key === 'ArrowRight') this.movePlayer('p2', 1, 0, 'right');
+                if (e.key === 'ArrowUp') this.movePlayer('p2', 0, -1, 'up');
+                if (e.key === 'ArrowDown') this.movePlayer('p2', 0, 1, 'down');
+                if (e.key === 'Enter') this.shoot('p2');
+            }
+
+            movePlayer(player, dx, dy, direction) {
+                const newX = this.players[player].x + dx;
+                const newY = this.players[player].y + dy;
+
+                if (newX >= 0 && newX < BOARD_SIZE && 
+                    newY >= 0 && newY < BOARD_SIZE && 
+                    this.board[newX][newY]) {
+                    this.players[player].x = newX;
+                    this.players[player].y = newY;
+                    this.players[player].direction = direction;
+                    this.updatePlayerPositions();
+                }
+            }
+
+
+            shoot(player) {
+                if (this.players[player].cooldown) return;
+
+                const shooter = this.players[player];
+                const target = player === 'p1' ? this.players.p2 : this.players.p1;
+                shot.play();
+                
+                // Create bullet at shooter's position
+                const startCell = document.getElementById(`cell-${shooter.x}-${shooter.y}`);
+                const bullet = document.createElement('div');
+                bullet.className = 'bullet';
+                startCell.appendChild(bullet);
+
+                // Set initial bullet position
+                const directions = {
+                    'right': { x: 1, y: 0, angle: 0 },
+                    'left': { x: -1, y: 0, angle: 180 },
+                    'up': { x: 0, y: -1, angle: -90 },
+                    'down': { x: 0, y: 1, angle: 90 }
+                };
+
+                const dir = directions[shooter.direction];
+                let currentX = shooter.x;
+                let currentY = shooter.y;
+                let hit = false;
+                let hitPos = null;
+
+                // Calculate trajectory and check for hit
+                while (currentX >= 0 && currentX < BOARD_SIZE && 
+                       currentY >= 0 && currentY < BOARD_SIZE) {
+                    currentX += dir.x;
+                    currentY += dir.y;
+
+                    if (currentX === target.x && currentY === target.y) {
+                        hit = true;
+                        hitPos = { x: currentX, y: currentY };
+                        break;
+                    }
+                }
+
+                // Animate bullet
+                const bulletAnim = bullet.animate([
+                    { transform: `translate(-50%, -50%) rotate(${dir.angle}deg)` },
+                    { transform: `translate(${dir.x * 600}px, ${dir.y * 600}px) rotate(${dir.angle}deg)` }
+                ], {
+                    duration: BULLET_SPEED,
+                    easing: 'linear'
+                });
+
+                // Handle hit
+                if (hit) {
+                    setTimeout(() => {
+                        // Apply damage
+                        const targetPlayer = player === 'p1' ? 'p2' : 'p1';
+                        this.players[targetPlayer].health = Math.max(0, this.players[targetPlayer].health - DAMAGE);
+                        this.updateHealthBars();
+
+                        // Visual feedback
+                        bullet.classList.add('bullet-hit');
+                        const targetElement = document.querySelector(`.${targetPlayer}`);
+                        if (targetElement) {
+                            targetElement.classList.add('player-hit');
+                            setTimeout(() => targetElement.classList.remove('player-hit'), 300);
+                        }
+
+                        // Check for game over
+                        if (this.players[targetPlayer].health <= 0) {
+                            this.gameOver = true;
+                            this.showGameOver(player);
+                        }
+                    }, BULLET_SPEED * 0.8); // Slightly before bullet animation ends
+                }
+
+                // Cleanup
+                bulletAnim.onfinish = () => bullet.remove();
+
+                // Set cooldown
+                this.players[player].cooldown = true;
+                setTimeout(() => {
+                    this.players[player].cooldown = false;
+                }, BULLET_SPEED + 100);
+            }
+
+            checkHit(shooter, target) {
+                switch(shooter.direction) {
+                    case 'right': return shooter.x === target.x && shooter.y < target.y;
+                    case 'left': return shooter.x === target.x && shooter.y > target.y;
+                    case 'up': return shooter.y === target.y && shooter.x > target.x;
+                    case 'down': return shooter.y === target.y && shooter.x < target.x;
+                }
+                return false;
+            }
+
+            updatePlayerPositions() {
+                // Remove existing players
+                document.querySelectorAll('.player').forEach(p => p.remove());
+
+                // Add players at new positions
+                for (const [id, player] of Object.entries(this.players)) {
+                    const playerDiv = document.createElement('div');
+                    playerDiv.className = `player ${id}`;
+                    
+                    // Apply rotation based on direction
+                    const rotation = {
+                        'up': -90,
+                        'down': 90,
+                        'left': 180,
+                        'right': 0
+                    }[player.direction];
+                    
+                    playerDiv.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+                    
+                    // Set initial visibility
+                    if (!this.hasValidMoves(id)) {
+                        playerDiv.classList.add('hidden');
+                    }
+                    
+                    document.getElementById(`cell-${player.x}-${player.y}`).appendChild(playerDiv);
+                }
+            }
+
+            updateHealthBars() {
+                const p1HealthBar = document.getElementById('p1Health');
+                const p2HealthBar = document.getElementById('p2Health');
+                
+                // Smooth transition for health bars
+                p1HealthBar.style.transition = 'width 0.3s ease-out';
+                p2HealthBar.style.transition = 'width 0.3s ease-out';
+                
+                p1HealthBar.style.width = `${this.players.p1.health}%`;
+                p2HealthBar.style.width = `${this.players.p2.health}%`;
+            }
+
+            showGameOver(winner) {
+                const gameOver = document.getElementById('gameOver');
+                const winnerText = document.getElementById('winnerText');
+                winnerText.textContent = `${winner.toUpperCase()} Wins!`;
+                gameOver.style.display = 'block';
+                win.play();                
+            }
+            
+        }
+
+        // Start the game
+        const game = new Game();
+    </script>
+</body>
+</html>
+
+
+
