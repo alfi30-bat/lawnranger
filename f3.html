@@ -5,6 +5,115 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LawnRanger</title>
     <style>
+/* Map Button */
+.map-button {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    z-index: 100;
+}
+
+.map-button:hover {
+    background: #45a049;
+}
+
+/* Map View Container */
+.map-view {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.95);
+    padding: 20px;
+    border-radius: 10px;
+    z-index: 1000;
+}
+
+.map-view.active {
+    display: block;
+}
+
+/* Close Button */
+.close-map {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+}
+
+/* Grid Layout */
+.map-grid {
+    display: grid;
+    grid-template-columns: repeat(15, 20px);
+    gap: 2px;
+    background: #2d2d2d;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.map-cell {
+    width: 20px;
+    height: 20px;
+    background: #3d3d3d;
+    border-radius: 2px;
+    position: relative;
+}
+
+/* Player Markers */
+.map-player {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.map-p1 {
+    background: #d0e60d;
+    border: 2px solid #2E7D32;
+}
+
+.map-p2 {
+    background: #2196F3;
+    border: 2px solid #1976D2;
+}
+
+/* Snake Markers */
+.map-snake {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background: #ff4444;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* Add a title */
+.map-view::before {
+    content: 'Player Positions';
+    position: absolute;
+    top: 15px;
+    left: 20px;
+    color: white;
+    font-size: 18px;
+}        
         body {
             margin: 0;
             display: flex;
@@ -26,51 +135,74 @@
             padding: 8px;
             border-radius: 8px;
             margin: 20px 0;
+            padding-right: 10%;
+            padding-bottom: 10%;
         }
 
         .cell {
-            width: 60px;
-            height: 70px;
-            position: relative;
-            background-image: url('./grass.png');
-            background-size: cover;
-            transition: opacity 0.3s ease;
-        }
+    width: 60px;
+    height: 70px;
+    position: relative;
+    background-image: url('./grass.png');
+    background-size: cover;
+    overflow: hidden;
+    transform-origin: center;
+    transition: transform 0.3s ease;
+}
 
-        .path {
-            opacity: 0.3;
-        }
+.path {
+    transform: skewX(30deg) translateX(30px);
+    background-position: left;
+}
 
-        .player {
-            position: absolute;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: all 0.3s ease;
-            z-index: 2;
-        }
+.player {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s ease;
+    z-index: 10;
+}
 
-        /* New styles for player visibility */
-        .player.hidden {
-            opacity: 0.3;
-            z-index: 0; /* Place behind grass */
-        }
+.player.hidden {
+    opacity: 0;
+    z-index: 0;
+}
 
-        .p1 { background: #d0e60d; border: 2px solid #2E7D32; }
+.bullet {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+    z-index: 20;
+    box-shadow: 0 0 10px #ff0;
+}
+
+
+/* Add ground effect under the grass */
+.cell::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.path::after {
+    opacity: 0.3;
+}
+
+       .p1 { background: #d0e60d; border: 2px solid #2E7D32; }
         .p2 { background: #2196F3; border: 2px solid #1976D2; }
 
-        .bullet {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: #fff;
-            border-radius: 50%;
-            z-index: 1;
-            box-shadow: 0 0 10px #ff0;
-        }
 
         .health-bars {
             display: flex;
@@ -250,40 +382,11 @@
                 
                 this.createPathAroundPosition(this.players.p1.x, this.players.p1.y);
                 this.createPathAroundPosition(this.players.p2.x, this.players.p2.y);
+                this.setupMapView();
             }
             //checking for valid moves
-            hasValidMoves(player) {
-                const { x, y } = this.players[player];
-                const directions = [
-                    { dx: -1, dy: 0 }, // up
-                    { dx: 1, dy: 0 },  // down
-                    { dx: 0, dy: -1 }, // left
-                    { dx: 0, dy: 1 }   // right
-                ];
+       // player display
 
-                return directions.some(dir => {
-                    const newX = x + dir.dx;
-                    const newY = y + dir.dy;
-                    return newX >= 0 && newX < BOARD_SIZE && 
-                           newY >= 0 && newY < BOARD_SIZE && 
-                           this.board[newX][newY];
-                });
-            }
-
-            // player display
-            updatePlayerVisibility() {
-                ['p1', 'p2'].forEach(player => {
-                    const playerElement = document.querySelector(`.${player}`);
-                    if (playerElement) {
-                        if (this.hasValidMoves(player)) {
-                            playerElement.classList.remove('hidden');
-                        } else {
-                            playerElement.classList.add('hidden');
-                        }
-                    }
-                });
-            }
-           
             initializeSnakes() {
                 const snakePositions = [
                     { x: Math.floor(BOARD_SIZE/4), y: Math.floor(BOARD_SIZE/4) },
@@ -347,27 +450,127 @@
                 }, SNAKE_MOVE_INTERVAL);
             }
 
-            createPathAroundPosition(x, y) {
-                const radius = 1;
-                for (let i = -radius; i <= radius; i++) {
-                    for (let j = -radius; j <= radius; j++) {
-                        const newX = x + i;
-                        const newY = y + j;
-                        if (newX >= 0 && newX < BOARD_SIZE && newY >= 0 && newY < BOARD_SIZE) {
-                            const cell = document.getElementById(`cell-${newX}-${newY}`);
-                            cell.classList.add('path');
-                            this.board[newX][newY] = true;
-                            
-                            setTimeout(() => {
-                                cell.classList.remove('path');
-                                this.board[newX][newY] = false;
-                            }, PATH_LIFETIME);
-                        }
-                    }
-                }
-            }
+// Update these methods in your Game class
+hasValidMoves(player) {
+    const { x, y } = this.players[player];
+    const directions = [
+        { dx: -1, dy: 0 }, // up
+        { dx: 1, dy: 0 },  // down
+        { dx: 0, dy: -1 }, // left
+        { dx: 0, dy: 1 }   // right
+    ];
 
-        handleKeyPress(e) {
+    // Check if any adjacent cell is a valid path
+    return directions.some(dir => {
+        const newX = x + dir.dx;
+        const newY = y + dir.dy;
+        return newX >= 0 && newX < BOARD_SIZE && 
+               newY >= 0 && newY < BOARD_SIZE && 
+               this.board[newX][newY];
+    });
+}
+
+
+movePlayer(player, dx, dy, direction) {
+    const newX = this.players[player].x + dx;
+    const newY = this.players[player].y + dy;
+
+    if (newX >= 0 && newX < BOARD_SIZE && 
+        newY >= 0 && newY < BOARD_SIZE && 
+        this.board[newX][newY]) {
+        this.players[player].x = newX;
+        this.players[player].y = newY;
+        this.players[player].direction = direction;
+        this.updatePlayerPositions();
+    }
+}
+
+updatePlayerPositions() {
+    // Remove existing players
+    document.querySelectorAll('.player').forEach(p => p.remove());
+
+    // Add players at new positions
+    for (const [id, player] of Object.entries(this.players)) {
+        const playerDiv = document.createElement('div');
+        playerDiv.className = `player ${id}`;
+        
+        // Apply rotation based on direction
+        const rotation = {
+            'up': -90,
+            'down': 90,
+            'left': 180,
+            'right': 0
+        }[player.direction];
+        
+        playerDiv.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+        
+        const cell = document.getElementById(`cell-${player.x}-${player.y}`);
+        if (cell) {
+            cell.appendChild(playerDiv);
+        }
+    }
+    
+    // Update visibility right after positioning
+    this.updatePlayerVisibility();
+}
+
+// Update these methods in your Game class
+updatePlayerVisibility() {
+    ['p1', 'p2'].forEach(player => {
+        const playerElement = document.querySelector(`.${player}`);
+        if (playerElement) {
+            if (this.hasValidMoves(player)) {
+                playerElement.style.opacity = '1';
+                playerElement.style.zIndex = '10';
+            } else {
+                playerElement.style.opacity = '0';
+                playerElement.style.zIndex = '0';
+            }
+        }
+    });
+}
+
+createPathAroundPosition(x, y) {
+    const radius = 1;
+    const directions = [
+        { x: 1, y: 0 },   // right
+        { x: -1, y: 0 },  // left
+        { x: 0, y: 1 },   // down
+        { x: 0, y: -1 },  // up
+        { x: 1, y: 1 },   // diagonal
+        { x: -1, y: -1 }, // diagonal
+        { x: 1, y: -1 },  // diagonal
+        { x: -1, y: 1 },  // diagonal
+        { x: 0, y: 0 }    // center
+    ];
+
+    directions.forEach(dir => {
+        const newX = x + dir.x;
+        const newY = y + dir.y;
+        
+        if (newX >= 0 && newX < BOARD_SIZE && newY >= 0 && newY < BOARD_SIZE) {
+            const cell = document.getElementById(`cell-${newX}-${newY}`);
+            if (!cell.classList.contains('path')) {
+                // Calculate angle based on direction from center
+                const angle = Math.atan2(dir.y, dir.x) * (180 / Math.PI);
+                cell.style.setProperty('--angle', `${angle}deg`);
+                
+                cell.classList.add('path');
+                this.board[newX][newY] = true;
+                
+                setTimeout(() => {
+                    cell.classList.remove('path');
+                    this.board[newX][newY] = false;
+                    this.updatePlayerVisibility();
+                }, PATH_LIFETIME);
+            }
+        }
+    });
+    
+    this.updatePlayerVisibility();
+}
+
+handleKeyPress(e) {
                 if (this.gameOver) return;
 
                 // Player 1 controls (WASD + Space)
@@ -384,28 +587,12 @@
                 if (e.key === 'ArrowDown') this.movePlayer('p2', 0, 1, 'down');
                 if (e.key === 'Enter') this.shoot('p2');
             }
-
-            //player movements
-            movePlayer(player, dx, dy, direction) {
-                const newX = this.players[player].x + dx;
-                const newY = this.players[player].y + dy;
-
-                if (newX >= 0 && newX < BOARD_SIZE && 
-                    newY >= 0 && newY < BOARD_SIZE && 
-                    this.board[newX][newY]) {
-                    this.players[player].x = newX;
-                    this.players[player].y = newY;
-                    this.players[player].direction = direction;
-                    this.updatePlayerPositions();
-                }
-            }
-
-            shoot(player) {
+         
+    shoot(player) {
                 if (this.players[player].cooldown) return;
 
                 const shooter = this.players[player];
                 const target = player === 'p1' ? this.players.p2 : this.players.p1;
-                shot.play();
                 
                 // Create bullet at shooter's position
                 const startCell = document.getElementById(`cell-${shooter.x}-${shooter.y}`);
@@ -426,63 +613,87 @@
                 let currentY = shooter.y;
                 let hit = false;
                 let hitPos = null;
+                let validPath = [];
 
-                // Calculate trajectory and check for hit
+                // Calculate trajectory through valid paths only
                 while (currentX >= 0 && currentX < BOARD_SIZE && 
-                       currentY >= 0 && currentY < BOARD_SIZE) {
+                    currentY >= 0 && currentY < BOARD_SIZE) {
                     currentX += dir.x;
                     currentY += dir.y;
 
-                    if (currentX === target.x && currentY === target.y) {
-                        hit = true;
-                        hitPos = { x: currentX, y: currentY };
-                        break;
+                    // Check if the next position is a valid path
+                    if (currentX >= 0 && currentX < BOARD_SIZE && 
+                        currentY >= 0 && currentY < BOARD_SIZE) {
+                        
+                        // If there's no valid path (grass is not faded), stop the bullet
+                        if (!this.board[currentX][currentY]) {
+                            break;
+                        }
+                        
+                        validPath.push({ x: currentX, y: currentY });
+
+                        // Check if we hit the target
+                        if (currentX === target.x && currentY === target.y) {
+                            hit = true;
+                            hitPos = { x: currentX, y: currentY };
+                            break;
+                        }
                     }
                 }
 
-                // Animate bullet
-                const bulletAnim = bullet.animate([
-                    { transform: `translate(-50%, -50%) rotate(${dir.angle}deg)` },
-                    { transform: `translate(${dir.x * 600}px, ${dir.y * 600}px) rotate(${dir.angle}deg)` }
-                ], {
-                    duration: BULLET_SPEED,
-                    easing: 'linear'
-                });
+                // Only play sound and animate if there's a valid path
+                if (validPath.length > 0) {
+                    shot.play();
 
-                // Handle hit
-                if (hit) {
+                    // Calculate animation distance based on valid path length
+                    const distance = validPath.length * 40; // 40px is cell size
+
+                    // Animate bullet
+                    const bulletAnim = bullet.animate([
+                        { transform: `translate(-50%, -50%) rotate(${dir.angle}deg)` },
+                        { transform: `translate(${dir.x * distance}px, ${dir.y * distance}px) rotate(${dir.angle}deg)` }
+                    ], {
+                        duration: BULLET_SPEED,
+                        easing: 'linear'
+                    });
+
+                    // Handle hit
+                    if (hit) {
+                        setTimeout(() => {
+                            // Apply damage
+                            const targetPlayer = player === 'p1' ? 'p2' : 'p1';
+                            this.players[targetPlayer].health = Math.max(0, this.players[targetPlayer].health - DAMAGE);
+                            this.updateHealthBars();
+
+                            // Visual feedback
+                            bullet.classList.add('bullet-hit');
+                            const targetElement = document.querySelector(`.${targetPlayer}`);
+                            if (targetElement) {
+                                targetElement.classList.add('player-hit');
+                                setTimeout(() => targetElement.classList.remove('player-hit'), 300);
+                            }
+
+                            // Check for game over
+                            if (this.players[targetPlayer].health <= 0) {
+                                this.gameOver = true;
+                                this.showGameOver(player);
+                            }
+                        }, BULLET_SPEED * (validPath.length / BOARD_SIZE)); // Scale timing based on path length
+                    }
+
+                    // Cleanup
+                    bulletAnim.onfinish = () => bullet.remove();
+
+                    // Set cooldown
+                    this.players[player].cooldown = true;
                     setTimeout(() => {
-                        // Apply damage
-                        const targetPlayer = player === 'p1' ? 'p2' : 'p1';
-                        this.players[targetPlayer].health = Math.max(0, this.players[targetPlayer].health - DAMAGE);
-                        this.updateHealthBars();
-
-                        // Visual feedback
-                        bullet.classList.add('bullet-hit');
-                        const targetElement = document.querySelector(`.${targetPlayer}`);
-                        if (targetElement) {
-                            targetElement.classList.add('player-hit');
-                            setTimeout(() => targetElement.classList.remove('player-hit'), 300);
-                        }
-
-                        // Check for game over
-                        if (this.players[targetPlayer].health <= 0) {
-                            this.gameOver = true;
-                            this.showGameOver(player);
-                        }
-                    }, BULLET_SPEED * 0.8); // Slightly before bullet animation ends
+                        this.players[player].cooldown = false;
+                    }, BULLET_SPEED + 100);
+                } else {
+                    // If no valid path, remove bullet immediately
+                    bullet.remove();
                 }
-
-                // Cleanup
-                bulletAnim.onfinish = () => bullet.remove();
-
-                // Set cooldown
-                this.players[player].cooldown = true;
-                setTimeout(() => {
-                    this.players[player].cooldown = false;
-                }, BULLET_SPEED + 100);
             }
-
             checkHit(shooter, target) {
                 switch(shooter.direction) {
                     case 'right': return shooter.x === target.x && shooter.y < target.y;
@@ -493,33 +704,7 @@
                 return false;
             }
 
-            updatePlayerPositions() {
-                // Remove existing players
-                document.querySelectorAll('.player').forEach(p => p.remove());
 
-                // Add players at new positions
-                for (const [id, player] of Object.entries(this.players)) {
-                    const playerDiv = document.createElement('div');
-                    playerDiv.className = `player ${id}`;
-                    
-                    // Apply rotation based on direction
-                    const rotation = {
-                        'up': -90,
-                        'down': 90,
-                        'left': 180,
-                        'right': 0
-                    }[player.direction];
-                    
-                    playerDiv.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
-                    
-                    // Set initial visibility
-                    if (!this.hasValidMoves(id)) {
-                        playerDiv.classList.add('hidden');
-                    }
-                    
-                    document.getElementById(`cell-${player.x}-${player.y}`).appendChild(playerDiv);
-                }
-            }
 
             updateHealthBars() {
                 const p1HealthBar = document.getElementById('p1Health');
@@ -532,6 +717,96 @@
                 p1HealthBar.style.width = `${this.players.p1.health}%`;
                 p2HealthBar.style.width = `${this.players.p2.health}%`;
             }
+
+
+            setupMapView() {
+    // Create map view button
+    const mapButton = document.createElement('button');
+    mapButton.className = 'map-button';
+    mapButton.textContent = 'Show Map (V)';
+    document.body.appendChild(mapButton);
+
+    // Create map container
+    const mapView = document.createElement('div');
+    mapView.className = 'map-view';
+    
+    // Add close button
+    const closeButton = document.createElement('button');
+    closeButton.className = 'close-map';
+    closeButton.innerHTML = '×';
+    mapView.appendChild(closeButton);
+
+    // Create grid container
+    const gridContainer = document.createElement('div');
+    gridContainer.className = 'map-grid';
+    mapView.appendChild(gridContainer);
+
+    // Generate grid cells
+    for (let i = 0; i < BOARD_SIZE; i++) {
+        for (let j = 0; j < BOARD_SIZE; j++) {
+            const cell = document.createElement('div');
+            cell.className = 'map-cell';
+            cell.id = `map-cell-${i}-${j}`;
+            gridContainer.appendChild(cell);
+        }
+    }
+
+    document.body.appendChild(mapView);
+
+    // Toggle map view function
+    const toggleMap = () => {
+        if (mapView.classList.contains('active')) {
+            mapView.classList.remove('active');
+        } else {
+            mapView.classList.add('active');
+            this.updateMapView();
+        }
+    };
+
+    // Event listeners
+    mapButton.addEventListener('click', toggleMap);
+    closeButton.addEventListener('click', toggleMap);
+
+    // Add keyboard shortcut
+    document.addEventListener('keydown', (e) => {
+        if (e.key.toLowerCase() === 'v' && !this.gameOver) {
+            // Prevent the 'v' key from affecting text inputs if they exist
+            if (document.activeElement.tagName !== 'INPUT' && 
+                document.activeElement.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                toggleMap();
+            }
+        }
+        // Close map view with Escape key
+        if (e.key === 'Escape' && mapView.classList.contains('active')) {
+            toggleMap();
+        }
+    });
+}
+    updateMapView() {
+        // Clear previous positions
+        document.querySelectorAll('.map-player').forEach(el => el.remove());
+
+        // Update player positions
+        for (const [id, player] of Object.entries(this.players)) {
+            const cell = document.getElementById(`map-cell-${player.x}-${player.y}`);
+            if (cell) {
+                const playerMarker = document.createElement('div');
+                playerMarker.className = `map-player map-${id}`;
+                cell.appendChild(playerMarker);
+            }
+        }
+
+        // Update snake positions if needed
+        this.snakes.forEach((snake, index) => {
+            const cell = document.getElementById(`map-cell-${snake.position.x}-${snake.position.y}`);
+            if (cell) {
+                const snakeMarker = document.createElement('div');
+                snakeMarker.className = 'map-snake';
+                cell.appendChild(snakeMarker);
+            }
+        });
+    }
 
             showGameOver(winner) {
                 const gameOver = document.getElementById('gameOver');
