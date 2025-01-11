@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -98,7 +99,7 @@
     position: absolute;
     width: 12px;
     height: 12px;
-    background: #ff4444;
+    /*background: #ff4444;*/
     border-radius: 50%;
     top: 50%;
     left: 50%;
@@ -113,42 +114,57 @@
     left: 20px;
     color: white;
     font-size: 18px;
-}        
-        body {
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: #1a1a1a;
-            font-family: Arial, sans-serif;
-        }
-        
-        #gameContainer {
-            text-align: center;
-        }
+}
 
-        #gameBoard {
-            display: inline-grid;
-            gap: 1px;
-            background: #2d4a2d;
-            padding: 8px;
-            border-radius: 8px;
-            margin: 20px 0;
-            padding-right: 10%;
-            padding-bottom: 10%;
-        }
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #1a1a1a;
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+}
 
-        .cell {
-    width: 60px;
-    height: 70px;
+#gameContainer {
+    text-align: center;
+    max-height: 100vh;
+    padding: 20px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#gameBoard {
+    display: grid;
+    gap: 1px;
+    background: #2d4a2d;
+    padding: 8px;
+    padding-right: 30px;
+    border-radius: 8px;
+    margin: 10px 0;
+    aspect-ratio: 1;
+    width: min(80vh, 90vw); /* Adjust size based on viewport */
+    box-sizing: border-box;
+}
+
+.cell {
+    width: 100%;
+    height: 100%;
     position: relative;
     background-image: url('./grass.png');
     background-size: cover;
+    background-position: center;
     overflow: hidden;
     transform-origin: center;
     transition: transform 0.3s ease;
+    aspect-ratio: 1;
 }
+
 
 .path {
     transform: skewX(30deg) translateX(30px);
@@ -157,8 +173,8 @@
 
 .player {
     position: absolute;
-    width: 30px;
-    height: 30px;
+    width: 30%;
+    height: 30%;
     border-radius: 50%;
     top: 50%;
     left: 50%;
@@ -167,20 +183,23 @@
     z-index: 10;
 }
 
-.player.hidden {
-    opacity: 0;
-    z-index: 0;
-}
-
+/* Adjust bullet sizing */
 .bullet {
     position: absolute;
-    width: 8px;
-    height: 8px;
+    width: 8%;
+    height: 8%;
     background: #fff;
     border-radius: 50%;
     z-index: 20;
     box-shadow: 0 0 10px #ff0;
 }
+
+
+.player.hidden {
+    opacity: 0;
+    z-index: 0;
+}
+
 
 
 /* Add ground effect under the grass */
@@ -211,10 +230,16 @@
             margin-bottom: 20px;
         }
 
-        .health-bar {
-            width: 200px;
-            color: white;
-        }
+.health-bars {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 600px;
+    margin-bottom: 10px;
+    margin-top: 70px;
+}
+
+
 
         .health-progress {
             width: 100%;
@@ -232,10 +257,13 @@
         .p1-health { background: #4CAF50; }
         .p2-health { background: #2196F3; }
 
-        .controls {
-            color: white;
-            margin-top: 20px;
-        }
+
+
+.controls {
+    color: white;
+    margin-top: 10px;
+}
+
 
         #gameOver {
             display: none;
@@ -250,28 +278,30 @@
             z-index: 100;
         }
 
-        .snake {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1;
-            transition: all 0.3s ease;
-        }
+/* Ensure snake elements scale properly */
+.snake {
+    position: absolute;
+    width: 20%;
+    height: 20%;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
     </style>
 </head>
 <body>
     <div id="gameContainer">
         <div class="health-bars">
             <div class="health-bar">
-                <div>Player 1</div>
+                <div style="color: white;">Player 1</div>
                 <div class="health-progress">
                     <div id="p1Health" class="health-fill p1-health" style="width: 100%"></div>
                 </div>
             </div>
             <div class="health-bar">
-                <div>Player 2</div>
+                <div style="color: white;">Player 2</div>
                 <div class="health-progress">
                     <div id="p2Health" class="health-fill p2-health" style="width: 100%"></div>
                 </div>
@@ -406,19 +436,18 @@
             }
 
             initializeBoard() {
-                const gameBoard = document.getElementById('gameBoard');
-                gameBoard.style.gridTemplate = `repeat(${BOARD_SIZE}, 40px) / repeat(${BOARD_SIZE}, 40px)`;
-                
-                for (let y = 0; y < BOARD_SIZE; y++) {
-                    for (let x = 0; x < BOARD_SIZE; x++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'cell';
-                        cell.id = `cell-${x}-${y}`;
-                        gameBoard.appendChild(cell);
-                    }
-                }
-            }
-
+    const gameBoard = document.getElementById('gameBoard');
+    gameBoard.style.gridTemplate = `repeat(${BOARD_SIZE}, 1fr) / repeat(${BOARD_SIZE}, 1fr)`;
+    
+    for (let y = 0; y < BOARD_SIZE; y++) {
+        for (let x = 0; x < BOARD_SIZE; x++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = `cell-${x}-${y}`;
+            gameBoard.appendChild(cell);
+        }
+    }
+}
             setupEventListeners() {
                 document.addEventListener('keydown', (e) => this.handleKeyPress(e));
             }
@@ -823,6 +852,9 @@ handleKeyPress(e) {
     </script>
 </body>
 </html>
+
+
+
 
 
 
